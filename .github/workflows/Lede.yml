@@ -48,30 +48,30 @@ on:
       KEEP_WORKFLOWS:
         description: '清理workflows,保留[X]个runs不被清理'
         required: true
-        default: '30'
+        default: '20'
       KEEP_RELEASES:
         description: '清理Releases,保留[X]个Releases不被清理'
         required: true
-        default: '30'
+        default: '10'
       SSH_ACTION:
         description: 'SSH远程配置固件'
         required: false
-        default: 'false'
+        default: 'true'
         type: boolean
       UPLOAD_FIRMWARE:
         description: '上传固件到 Github Artifacts'
         required: false
-        default: 'true'
+        default: 'false'
         type: boolean
       UPLOAD_RELEASE:
         description: '发布固件到 Github Releases'
         required: false
-        default: 'false'
+        default: 'true'
         type: boolean
       CACHEWRTBUILD_SWITCH:
         description: '缓存加速编译'
         required: false
-        default: 'true'
+        default: 'false'
         type: boolean
       UPDATE_FIRMWARE_ONLINE:
         description: '在线更新固/打包aarch64系列为img固件'
