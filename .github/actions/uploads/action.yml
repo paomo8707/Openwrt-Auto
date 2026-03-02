@@ -33,7 +33,74 @@ runs:
       run: |
         cd $HOME_PATH
         echo "SHANG_MESSAGE=、上传Artifacts" >> ${GITHUB_ENV}
-    
+
+    - name: 生成 Release 说明（含插件列表）
+      if: env.UPLOAD_RELEASE == 'true'
+      shell: bash
+      run: |
+        set -e
+        NOTES="${GITHUB_WORKSPACE}/release.md"
+        CFG="${HOME_PATH}/.config"
+
+        KERNEL_VER=""
+        if [[ -f "${CFG}" ]]; then
+          KERNEL_VER="$(grep -E '^CONFIG_KERNEL_PATCHVER=' "${CFG}" | head -n1 | cut -d= -f2 | tr -d '"' || true)"
+          if [[ -z "${KERNEL_VER}" ]]; then
+            KERNEL_VER="$(grep -E '^CONFIG_LINUX_[0-9]+_[0-9]+=y$' "${CFG}" | head -n1 | sed -E 's/^CONFIG_LINUX_([0-9]+)_([0-9]+)=y$/\1.\2/' || true)"
+          fi
+        fi
+
+        RELEASE_URL="https://github.com/${GIT_REPOSITORY}/releases/tag/a${DATE}"
+
+        {
+          echo "★ 源码：${REPO_URL}"
+          echo "★ 分支：${REPO_BRANCH}"
+          [[ -n "${KERNEL_VER}" ]] && echo "🖥 内核版本：${KERNEL_VER}"
+          [[ -n "${kernel_usage:-}" ]] && echo "🔧 内核仓库：${kernel_usage}"
+          echo "📌 编译时间：${TZ_Message}"
+          echo
+          echo "📦 包含插件列表："
+        } > "${NOTES}"
+
+        if [[ -f "${CFG}" ]]; then
+          mapfile -t PKGS < <(
+            grep -E '^CONFIG_PACKAGE_luci-(app|theme)-[^=]+=y$' "${CFG}" \
+              | sed -E 's/^CONFIG_PACKAGE_([^=]+)=y$/\1/' \
+              | sort -u
+          )
+          if [[ ${#PKGS[@]} -gt 0 ]]; then
+            i=1
+            for p in "${PKGS[@]}"; do
+              echo "${i}、${p}" >> "${NOTES}"
+              i=$((i+1))
+            done
+          else
+            echo "（未检测到 luci-app/luci-theme）" >> "${NOTES}"
+          fi
+        else
+          echo "（未找到 .config，无法提取插件列表）" >> "${NOTES}"
+        fi
+
+        {
+          echo
+          echo "🎉 [${SHANGCHUAN_MINGCHEN}]固件下载"
+          echo "${RELEASE_URL}"
+        } >> "${NOTES}"
+
+        if [[ "${RR_RELEASE}" == "b" ]]; then
+          cat >> "${NOTES}" <<'EOF'
+
+---
+写入EMMC：Login to OpenWrt → System → Amlogic Service → Install OpenWrt
+EOF
+        fi
+
+        {
+          echo "RELEASE_BODY<<EOF"
+          cat "${NOTES}"
+          echo "EOF"
+        } >> ${GITHUB_ENV}
+
     - name: 发布固件
       id: fabu
       if: env.UPLOAD_RELEASE == 'true' && env.RR_RELEASE == 'a'
@@ -43,7 +110,7 @@ runs:
         tag: a${{ env.DATE }}
         token: ${{ env.REPO_TOKEN }}
         allowUpdates: true
-        body: ${{ env.TONGZHI_DATE }}
+        body: ${{ env.RELEASE_BODY }}
         artifacts: "${{ env.FIRMWARE_PATH }}/*"
 
     - name: 发布固件到 Github Releases
@@ -56,11 +123,7 @@ runs:
         token: ${{ env.REPO_TOKEN }}
         allowUpdates: true
         artifacts: "${{ env.FIRMWARE_PATH }}/*"
-        body: |
-          发布日期：${{ env.FIRMWARE_DATE }}
-          固件源码：${{ env.SOURCE }}
-          内核仓库：${{ env.kernel_usage }}
-          写入EMMC：Login to OpenWrt → System → Amlogic Service → Install OpenWrt
+        body: ${{ env.RELEASE_BODY }}
 
     - name: 发布信息
       if: steps.fabu.outcome == 'success' && env.UPLOAD_RELEASE == 'true' || steps.nfabu.outcome == 'success' && env.UPLOAD_RELEASE == 'true'
