@@ -50,7 +50,7 @@ runs:
           fi
         fi
 
-        RELEASE_URL="https://github.com/${GIT_REPOSITORY}/releases/tag/a${DATE}"
+        RELEASE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/tag/a${DATE}"
 
         {
           echo "★ 源码：${REPO_URL}"
@@ -88,11 +88,11 @@ runs:
         } >> "${NOTES}"
 
         if [[ "${RR_RELEASE}" == "b" ]]; then
-          cat >> "${NOTES}" <<'EOF'
-
----
-写入EMMC：Login to OpenWrt → System → Amlogic Service → Install OpenWrt
-EOF
+          {
+            echo
+            echo "---"
+            echo "写入EMMC：Login to OpenWrt → System → Amlogic Service → Install OpenWrt"
+          } >> "${NOTES}"
         fi
 
         {
