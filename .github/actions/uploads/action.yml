@@ -64,8 +64,7 @@ runs:
 
         if [[ -f "${CFG}" ]]; then
           mapfile -t PKGS < <(
-            grep -E '^CONFIG_PACKAGE_luci-(app|theme)-[^=]+=y$' "${CFG}" \
-              | grep -v '_INCLUDE_' \
+            grep -E '^CONFIG_PACKAGE_luci-(app|theme)-[a-z0-9][a-z0-9+.-]*=y$' "${CFG}" \
               | sed -E 's/^CONFIG_PACKAGE_([^=]+)=y$/\1/' \
               | sort -u
           )
