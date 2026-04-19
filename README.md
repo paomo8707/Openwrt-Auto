@@ -8,7 +8,13 @@
 
 
 <details>
-<summary>⬆️更新说明（2026年2月26号）</summary>
+<summary>⬆️更新说明（2026年4月19号）</summary>
+
+ ---
+ <br>
+  2026年4月29号
+ <br><br>
+ 修复autoupdate
 
  ---
  <br>
