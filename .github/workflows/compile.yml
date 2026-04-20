@@ -176,6 +176,12 @@ jobs:
             make -j1 V=s
           fi
         }
+    - name: 失败后打印真实报错
+      if: failure() && steps.package.outcome == 'success'
+      run: |
+        cd openwrt
+        echo "==== package/install -j1 V=s ===="
+        make package/install -j1 V=s || true
     - name: 自动打包armsr_rootfs_tar_gz
       if: steps.compile.outcome == 'success' && env.ONLINE_FIRMWARE == 'true'
       uses: ./.github/actions/aarch
