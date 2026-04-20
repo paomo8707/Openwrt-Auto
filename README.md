@@ -8,13 +8,14 @@
 
 
 <details>
-<summary>⬆️更新说明（2026年4月19号）</summary>
+<summary>⬆️更新说明（2026年4月20号）</summary>
 
  ---
  <br>
-  2026年4月29号
+  2026年4月20号
  <br><br>
- 修复autoupdate
+ 1.修复autoupdate
+ 2.增加编译错误后抓取日志
 
  ---
  <br>
