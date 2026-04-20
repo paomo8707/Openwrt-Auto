@@ -36,7 +36,7 @@ runs:
         echo -e "${Color}${2}\033[0m"
         }
 
-        # 提取插件信息
+        # 提取插件信息（LuCI 插件/主题）
         OUTPUT_FILE="/tmp/CONFIG_PACKAGE"
         > "$OUTPUT_FILE"
         counter=1
@@ -44,6 +44,16 @@ runs:
            package_name="${line#CONFIG_PACKAGE_}"
            echo "TIME g \"$counter、$package_name\" |sed 's/^/         /'" >> "$OUTPUT_FILE"
            counter=$((counter + 1))
+        done
+
+        # 额外显示关键代理核心，避免“LuCI 未显示，但核心仍被选中”造成误判
+        CORE_OUTPUT_FILE="/tmp/CONFIG_CORE_PACKAGE"
+        > "$CORE_OUTPUT_FILE"
+        core_counter=1
+        grep -E '^CONFIG_PACKAGE_(nikki|mihomo-meta|mihomo-alpha|xray-core|sing-box|trojan-plus|shadowsocksr-libev(-ssr-(local|redir|server))?|shadowsocks-libev-ss-(local|redir|server)|v2ray-plugin)=y$' "$HOME_PATH/.config" | while IFS='=' read -r line _; do
+           package_name="${line#CONFIG_PACKAGE_}"
+           echo "TIME l \"$core_counter、$package_name\" |sed 's/^/         /'" >> "$CORE_OUTPUT_FILE"
+           core_counter=$((core_counter + 1))
         done
 
         echo
@@ -154,6 +164,16 @@ runs:
            . "/tmp/CONFIG_PACKAGE"
            rm -f "/tmp/CONFIG_PACKAGE"
            echo
+        fi
+        if [ -f "/tmp/CONFIG_CORE_PACKAGE" ] && [ -s "/tmp/CONFIG_CORE_PACKAGE" ]; then
+           echo
+           TIME y "	   已选代理核心/后端"
+           chmod -R +x "/tmp/CONFIG_CORE_PACKAGE"
+           . "/tmp/CONFIG_CORE_PACKAGE"
+           rm -f "/tmp/CONFIG_CORE_PACKAGE"
+           echo
+        else
+           rm -f "/tmp/CONFIG_CORE_PACKAGE"
         fi
 branding:
   icon: "terminal"

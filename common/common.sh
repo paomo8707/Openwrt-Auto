@@ -1446,6 +1446,16 @@ if [[ `grep -c "CONFIG_TARGET_ROOTFS_EXT4FS=y" ${HOME_PATH}/.config` -eq '1' ]];
 fi
 
 cd ${HOME_PATH}
+
+# 如果未选择 LuCI 前端，则强制关闭对应核心包，避免“前端未选但核心仍参与编译”
+if ! grep -q '^CONFIG_PACKAGE_luci-app-nikki=y$' "${HOME_PATH}/.config"; then
+  for orphan_pkg in luci-i18n-nikki-zh-cn nikki mihomo-meta mihomo-alpha; do
+    sed -i       -e "/^CONFIG_PACKAGE_${orphan_pkg}=y$/d"       -e "/^# CONFIG_PACKAGE_${orphan_pkg} is not set$/d"       "${HOME_PATH}/.config"
+    echo "# CONFIG_PACKAGE_${orphan_pkg} is not set" >> "${HOME_PATH}/.config"
+  done
+  TIME r "未选择 luci-app-nikki，已自动关闭 nikki / mihomo 相关核心包"
+fi
+
 make defconfig > /dev/null 2>&1
 ./scripts/diffconfig.sh > ${CONFIG_TXT}
 
