@@ -81,8 +81,44 @@ runs:
       run: |
         cd $HOME_PATH
         bash $COMMON_SH Diy_menu5
+        if [ -s "${CONFIG_TXT}" ]; then
+          OPERATE_SEED="${MYCONFIG_FILE}"
+          REPO_SEED="${GITHUB_WORKSPACE}/build/${FOLDER_NAME}/seed/${CONFIG_FILE}"
+          mkdir -p "$(dirname "${OPERATE_SEED}")" "$(dirname "${REPO_SEED}")"
+          cp -f "${CONFIG_TXT}" "${OPERATE_SEED}"
+          cp -f "${CONFIG_TXT}" "${REPO_SEED}"
+          echo "SYNCED_FINAL_SEED=${OPERATE_SEED}" >> ${GITHUB_ENV}
+          echo "REPO_SEED=${REPO_SEED}" >> ${GITHUB_ENV}
+          echo -e "\033[32m已同步最终配置到两个 seed：\033[0m"
+          echo "operates: ${OPERATE_SEED}"
+          echo "workspace: ${REPO_SEED}"
+        else
+          echo -e "\033[31mCONFIG_TXT 不存在或为空：${CONFIG_TXT}\033[0m"
+          exit 1
+        fi
         echo "CONFIG_DATE=$(date +%Y-%m%d-%H%M)" >> ${GITHUB_ENV}
         echo "SendMessage=true" >> ${GITHUB_ENV}
+
+    - name: 输出本次最终保存到 seed 的配置摘要
+      shell: bash
+      run: |
+        echo
+        OPERATE_SEED="${MYCONFIG_FILE}"
+        REPO_SEED="${GITHUB_WORKSPACE}/build/${FOLDER_NAME}/seed/${CONFIG_FILE}"
+        echo -e "\033[33moperates seed：${OPERATE_SEED}\033[0m"
+        echo -e "\033[33mrepo seed：${REPO_SEED}\033[0m"
+        for seed in "${OPERATE_SEED}" "${REPO_SEED}"; do
+          if [ -f "${seed}" ]; then
+            echo -e "\033[32m$(basename "${seed}") 关键项：\033[0m"
+            grep -E 'CONFIG_PACKAGE_(luci-app-passwall|luci-app-ssr-plus|nikki|luci-app-nikki|mihomo-meta|mihomo-alpha)=' "${seed}" || true
+          else
+            echo -e "\033[31mseed 未找到：${seed}\033[0m"
+            exit 1
+          fi
+        done
+        if [ -f "${COMPILE_PATH}/relevance/${CONFIG_FILE}.full.config" ]; then
+          echo -e "\033[32m已保存完整 .config：${COMPILE_PATH}/relevance/${CONFIG_FILE}.full.config\033[0m"
+        fi
 
     - name: 上传配置文件在 Github Artifacts
       if: env.SHANG_CHUAN == 'true'
@@ -96,7 +132,9 @@ runs:
       uses: actions/upload-artifact@main
       with:
         name: .config_${{ env.SOURCE }}_${{ env.LUCI_EDITION }}_${{ env.TARGET_PROFILE }}_${{ env.CONFIG_DATE }}
-        path: ${{ env.CONFIG_TXT }}
+        path: |
+          ${{ env.CONFIG_TXT }}
+          ${{ env.COMPILE_PATH }}/relevance/${{ env.CONFIG_FILE }}.full.config
 branding:
   icon: "terminal"
   color: "gray-dark"

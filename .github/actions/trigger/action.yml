@@ -19,12 +19,24 @@ runs:
 
         # 清理和复制文件
         [[ -d "$UPLOAD/build/${FOLDER_NAME}" ]] && rm -rf "$UPLOAD/build/${FOLDER_NAME}"
-        if [ -f "$CONFIG_TXT" ]; then
-          cp -Rf "$CONFIG_TXT" "$MYCONFIG_FILE"
-        else
-          echo "WARN: CONFIG_TXT not found: $CONFIG_TXT (skip)";
-        fi
         cp -Rf "$COMPILE_PATH" "$UPLOAD/build/$FOLDER_NAME"
+
+        # 以 repo workspace 里的 seed 为准推送，确保 GitHub 上看到的 build/.../seed
+        # 与 SSH 后最终导出的配置一致；若不存在，再回退到 CONFIG_TXT。
+        FINAL_SEED="${GITHUB_WORKSPACE}/build/${FOLDER_NAME}/seed/${CONFIG_FILE}"
+        mkdir -p "$UPLOAD/build/${FOLDER_NAME}/seed"
+        if [ -s "$FINAL_SEED" ]; then
+          cp -f "$FINAL_SEED" "$UPLOAD/build/${FOLDER_NAME}/seed/${CONFIG_FILE}"
+          echo "Push seed from repo workspace: $FINAL_SEED"
+        elif [ -s "$CONFIG_TXT" ]; then
+          cp -f "$CONFIG_TXT" "$UPLOAD/build/${FOLDER_NAME}/seed/${CONFIG_FILE}"
+          echo "Push seed from CONFIG_TXT: $CONFIG_TXT"
+        else
+          echo "ERROR: final seed missing: $FINAL_SEED"
+          echo "ERROR: CONFIG_TXT missing or empty: $CONFIG_TXT"
+          exit 1
+        fi
+
         [[ -d "$UPLOAD/build/common" ]] && rm -rf "$UPLOAD/build/common"
         cp -Rf "$GITHUB_WORKSPACE/.github/workflows/compile.yml" "$UPLOAD/.github/workflows/compile.yml"
 
