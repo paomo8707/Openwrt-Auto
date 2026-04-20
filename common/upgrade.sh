@@ -38,7 +38,7 @@ function Diy_Part1() {
 function Diy_Part2() {
 	export UPDATE_TAG="Update-${TARGET_BOARD}"
 	export FILESETC_UPDATE="${HOME_PATH}/package/base-files/files/etc/openwrt_update"
-	export FILESETC_AUTOUPDATE_DEFAULT="${HOME_PATH}/package/base-files/files/etc/autoupdate/default"
+	export FILESETC_AUTOUPDATE_DEFAULT="${HOME_PATH}/package/autoupdate/files/etc/autoupdate/default"
 	export GITHUB_PROXY="https://ghfast.top"
 	export RELEASE_DOWNLOAD="\$GITHUB_LINK/releases/download/${UPDATE_TAG}"
 	export GITHUB_RELEASE="${GITHUB_LINK}/releases/tag/${UPDATE_TAG}"
