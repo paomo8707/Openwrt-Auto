@@ -10,9 +10,9 @@ on:
     branches:
       - main
     paths:
-      - 'build/Lede/relevance/start'
+      - 'build/Immortalwrt/relevance/start'
   # schedule:
-  #   - 'build/Lede/relevance/start'
+  #   - 'build/Immortalwrt/relevance/start'
 env:
   GIT_REPOSITORY: ${{github.repository}}
   REPO_TOKEN: ${{ secrets.REPO_TOKEN }}
@@ -32,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-       target: [Lede]
+       target: [Immortalwrt]
 
     steps:
     - name: 释放Ubuntu磁盘空间
