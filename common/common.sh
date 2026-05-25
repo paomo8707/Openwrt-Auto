@@ -24,6 +24,43 @@ export "${overall}"
 echo "${overall}" >> "${GITHUB_ENV}"
 }
 
+function detect_upstream_luci_edition() {
+# clone 源码完成后，从上游源码自身的 include/version.mk 读取默认版本号。
+# Lede master 从 23.05/24.10 升级时，文件名、提示、在线更新标识会自动跟随上游。
+local version_file=""
+local version_number=""
+
+for file in \
+  "${HOME_PATH}/include/version.mk" \
+  "${GITHUB_WORKSPACE}/openwrt/include/version.mk" \
+  "openwrt/include/version.mk"; do
+  if [[ -f "${file}" ]]; then
+    version_file="${file}"
+    break
+  fi
+done
+
+if [[ -n "${version_file}" ]]; then
+  version_number=$(awk -F ':=' '
+    /^[[:space:]]*VERSION_NUMBER[[:space:]]*:=/ {
+      v=$2
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", v)
+      if (match(v, /[0-9]+(\.[0-9]+)+/)) { last=substr(v, RSTART, RLENGTH) }
+      else if (v ~ /SNAPSHOT/) { last="SNAPSHOT" }
+    }
+    END { print last }
+  ' "${version_file}")
+  if [[ -n "${version_number}" ]]; then
+    variable LUCI_EDITION="${version_number}"
+    TIME g "已根据上游源码 ${version_file} 设置 LUCI_EDITION=${LUCI_EDITION}"
+  else
+    TIME y "未能从 ${version_file} 读取 VERSION_NUMBER，继续使用 LUCI_EDITION=${LUCI_EDITION}"
+  fi
+else
+  TIME y "未找到 include/version.mk，继续使用 LUCI_EDITION=${LUCI_EDITION}"
+fi
+}
+
 function Diy_variable() {
 # 读取变量
 case "${SOURCE_CODE}" in
@@ -31,7 +68,8 @@ COOLSNOWWOLF)
   variable REPO_URL="https://github.com/coolsnowwolf/lede"
   variable SOURCE="Lede"
   variable SOURCE_OWNER="Lean"
-  variable LUCI_EDITION="23.05"
+  # 初始值只做 clone 前兜底；clone 完成后会从上游 include/version.mk 自动覆盖。
+  variable LUCI_EDITION="$(echo "${REPO_BRANCH}" | sed 's/openwrt-//g')"
   variable DISTRIB_SOURCECODE="lede"
   variable GENE_PATH="${HOME_PATH}/package/base-files/files/bin/config_generate"
 ;;
@@ -129,6 +167,12 @@ fi
 }
 
 function Diy_feedsconf() {
+# 源码已 clone 到 openwrt 后，更新一次实际 LuCI/OpenWrt 版本。
+# 仅 Lede master 这类不带版本号的分支需要这样做，避免再写死 23.05。
+if [[ "${SOURCE_CODE}" == "COOLSNOWWOLF" ]]; then
+  detect_upstream_luci_edition
+fi
+
 local LICENSES_DOC="${GITHUB_WORKSPACE}/openwrt/LICENSES/doc"
 [[ ! -d "${LICENSES_DOC}" ]] && mkdir -p "${LICENSES_DOC}"
 cp -Rf ${GITHUB_WORKSPACE}/openwrt/feeds.conf.default ${LICENSES_DOC}/feeds.conf.default
@@ -1446,16 +1490,6 @@ if [[ `grep -c "CONFIG_TARGET_ROOTFS_EXT4FS=y" ${HOME_PATH}/.config` -eq '1' ]];
 fi
 
 cd ${HOME_PATH}
-
-# 如果未选择 LuCI 前端，则强制关闭对应核心包，避免“前端未选但核心仍参与编译”
-if ! grep -q '^CONFIG_PACKAGE_luci-app-nikki=y$' "${HOME_PATH}/.config"; then
-  for orphan_pkg in luci-i18n-nikki-zh-cn nikki mihomo-meta mihomo-alpha; do
-    sed -i       -e "/^CONFIG_PACKAGE_${orphan_pkg}=y$/d"       -e "/^# CONFIG_PACKAGE_${orphan_pkg} is not set$/d"       "${HOME_PATH}/.config"
-    echo "# CONFIG_PACKAGE_${orphan_pkg} is not set" >> "${HOME_PATH}/.config"
-  done
-  TIME r "未选择 luci-app-nikki，已自动关闭 nikki / mihomo 相关核心包"
-fi
-
 make defconfig > /dev/null 2>&1
 ./scripts/diffconfig.sh > ${CONFIG_TXT}
 
