@@ -22,6 +22,30 @@ runs:
           exit 1
         fi
 
+        # actions/checkout 会持久化 GITHUB_TOKEN（http.https://github.com/.extraheader），
+        # 它的优先级高于 URL 里的 userinfo，push 会以 github-actions[bot] 身份发出（只读 → 403）。
+        # 这里显式移除，确保下面的 push 真正使用 REPO_TOKEN。
+        git config --local --unset-all "http.https://github.com/.extraheader" >/dev/null 2>&1 || true
+
+        # 提前确认 REPO_TOKEN 的身份与写权限，避免重试 3 次后才暴露是权限问题。
+        TOKEN_LOGIN="$(curl --silent --show-error --connect-timeout 10 --max-time 20 \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer ${REPO_TOKEN}" \
+          "https://api.github.com/user" | jq -r '.login // empty' 2>/dev/null || true)"
+        TOKEN_PUSH="$(curl --silent --show-error --connect-timeout 10 --max-time 20 \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer ${REPO_TOKEN}" \
+          "https://api.github.com/repos/${GIT_REPOSITORY}" \
+          | jq -r '.permissions.push // false' 2>/dev/null || echo false)"
+        echo "REPO_TOKEN 身份：${TOKEN_LOGIN:-未知（安装令牌/GITHUB_TOKEN 无法读取 /user）}"
+        echo "REPO_TOKEN 对 ${GIT_REPOSITORY} 的 push 权限：${TOKEN_PUSH}"
+
+        if [[ "${TOKEN_PUSH}" != "true" ]]; then
+          echo "::error::REPO_TOKEN 没有 ${GIT_REPOSITORY} 的 contents:write 权限（push=${TOKEN_PUSH}），推送 seed 必然 403。"
+          echo "::error::请改用仓库所有者的 PAT（Contents: Read and write）覆盖 REPO_TOKEN，不要用默认 GITHUB_TOKEN。"
+          exit 1
+        fi
+
         # common.sh 会把本次实际构建参数写到 runner 临时的 relevance/settings.ini。
         # 这里只读取它用于构造 dispatch 上下文，不再把该运行态文件提交到仓库。
         RUNTIME_SETTINGS="${COMPILE_PATH}/relevance/settings.ini"
@@ -149,7 +173,7 @@ runs:
         PY
         )"
 
-        API_VERSION="2026-03-10"
+        API_VERSION="2022-11-28"
         RESPONSE_FILE="${TMP_DIR}/dispatch-response.json"
         CURL_RC=0
         HTTP_CODE=""
