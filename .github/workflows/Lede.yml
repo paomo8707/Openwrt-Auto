@@ -89,6 +89,13 @@ concurrency:
   group: configure-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
+# 本流程需要两个写权限（缺一不可）：
+#   contents: write —— 把最终 seed 提交推回仓库
+#   actions: write  —— 用 workflow_dispatch 触发第二阶段的 compile.yml
+permissions:
+  contents: write
+  actions: write
+
 
 jobs:
   build:
@@ -115,6 +122,11 @@ jobs:
     steps:
     - name: 检出自动化仓库
       uses: actions/checkout@v5
+      with:
+        # 关键：checkout 默认把 GITHUB_TOKEN 写入 http.https://github.com/.extraheader，
+        # 该 header 优先于 URL 里的 userinfo，导致 .github/actions/trigger 的 push
+        # 变成 github-actions[bot] 身份（只读 → 403）。关闭持久化凭据，push 才真正用 REPO_TOKEN。
+        persist-credentials: false
 
     - name: 检查上游更新（如需请先同步）
       if: github.repository != 'datout/Openwrt-Auto'
