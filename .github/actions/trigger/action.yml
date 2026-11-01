@@ -67,7 +67,7 @@ runs:
           PUSH_OK=false
           for attempt in 1 2 3; do
             echo "推送 seed（${attempt}/3）..."
-            if git push "https://x-access-token:${REPO_TOKEN}@github.com/${GIT_REPOSITORY}.git" "HEAD:${GIT_REFNAME}"; then
+            if git -c http.https://github.com/.extraheader= push "https://x-access-token:${REPO_TOKEN}@github.com/${GIT_REPOSITORY}.git" "HEAD:${GIT_REFNAME}"; then
               PUSH_OK=true
               break
             fi
