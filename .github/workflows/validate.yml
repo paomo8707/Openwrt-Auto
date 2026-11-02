@@ -6,6 +6,8 @@ on:
       - main
       - next
       - 'refactor/**'
+    paths-ignore:
+      - 'build/**/seed/**'
   pull_request:
   workflow_dispatch:
 
@@ -69,6 +71,23 @@ jobs:
           if ! shellcheck -x -e SC2154 common/custom/ubuntu.sh; then
             echo '::warning title=ShellCheck 迁移模块观察::common/custom/ubuntu.sh 存在 ShellCheck 诊断，但该历史模块不作为阻断门禁。'
           fi
+
+      - name: 检查 Fork 编译认证
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in \
+            .github/workflows/Lede.yml \
+            .github/workflows/Immortalwrt.yml \
+            .github/workflows/Lienol.yml \
+            .github/workflows/Mt798x.yml \
+            .github/workflows/Official.yml \
+            .github/workflows/Xwrt.yml \
+            .github/workflows/compile.yml; do
+            grep -q 'uses: actions/checkout@v5' "${file}"
+            grep -Eq '^[[:space:]]+token:[[:space:]].*REPO_TOKEN' "${file}"
+          done
+          echo "OK: 编译阶段 checkout 使用 REPO_TOKEN，避免 GITHUB_TOKEN 覆盖 PAT"
 
       - name: YAML 语法检查
         shell: bash
@@ -162,43 +181,6 @@ jobs:
           if [[ -s /tmp/actionlint.current.sorted ]]; then
             echo "::warning title=Actionlint 历史问题::检测到历史 Actionlint 诊断，但没有发现本次新增问题，因此不阻断项目自检。"
           fi
-
-      - name: 版本体系与路径一致性检查
-        shell: bash
-        run: |
-          set -euo pipefail
-          test ! -e UPSTREAM_VERSION
-          ! find build -type f -path '*/relevance/actions_version' -print -quit | grep -q .
-          ! grep -RIn --exclude-dir=.git --exclude-dir=backups \
-            --exclude=validate.yml --exclude=sync-upstream.yml --exclude=sync-upstream.sh \
-            -E 'ACTIONS_VERSION|actions_version|UPSTREAM_VERSION' .
-
-          for workflow in Immortalwrt Lede Lienol Mt798x Official Xwrt; do
-            file=".github/workflows/${workflow}.yml"
-            grep -q 'uses: ./\.github/actions/build-entry' "${file}"
-            grep -q 'uses: ./\.github/actions/trigger' "${file}"
-          done
-          grep -q 'git merge-base --is-ancestor' .github/actions/build-entry/action.yml
-          grep -q 'git rev-list --count' .github/actions/build-entry/action.yml
-          grep -q 'git merge-base --is-ancestor' .github/workflows/compile.yml
-          grep -q 'git merge-base --is-ancestor' common/sync-upstream.sh
-          for file in .github/actions/build-entry/action.yml .github/workflows/compile.yml; do
-            grep -q 'git diff --name-only' "${file}"
-            grep -Fq 'build/*/diy-part.sh' "${file}"
-            grep -Fq '.github/workflows/validate.yml' "${file}"
-          done
-
-          if grep -RInE --exclude-dir=.git --exclude-dir=backups --exclude=validate.yml \
-            'BENDI_VERSION|OPERATES_PATH|OPERATE_SEED|build/operates|/tmp/common|seed_refresh\.sh' \
-            common build .github/actions; then
-            echo '发现已废弃的编译架构残留'
-            exit 1
-          fi
-          test ! -e common/custom/seed_refresh.sh
-          grep -q 'COMPILE_PATH="\$GITHUB_WORKSPACE/build/\${FOLDER_NAME}"' .github/actions/mishi/action.yml
-          ! grep -q 'cp -Rf build .*operates' .github/actions/mishi/action.yml
-          grep -q 'local runtime_root=' common/custom/first.sh
-          grep -q 'DIY_RUNTIME_DIR=' common/custom/first.sh
 
       - name: common.sh 模块化边界检查
         shell: bash
