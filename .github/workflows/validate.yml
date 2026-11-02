@@ -6,6 +6,8 @@ on:
       - main
       - next
       - 'refactor/**'
+    paths-ignore:
+      - 'build/**/seed/**'
   pull_request:
   workflow_dispatch:
 
