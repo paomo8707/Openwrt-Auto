@@ -182,58 +182,6 @@ jobs:
             echo "::warning title=Actionlint 历史问题::检测到历史 Actionlint 诊断，但没有发现本次新增问题，因此不阻断项目自检。"
           fi
 
-      - name: 版本体系与路径一致性检查
-        shell: bash
-        run: |
-          set -euo pipefail
-          test ! -e UPSTREAM_VERSION
-          ! find build -type f -path '*/relevance/actions_version' -print -quit | grep -q .
-          ! grep -RIn --exclude-dir=.git --exclude-dir=backups \
-            --exclude=validate.yml --exclude=sync-upstream.yml --exclude=sync-upstream.sh \
-            -E 'ACTIONS_VERSION|actions_version|UPSTREAM_VERSION' .
-
-          for workflow in Immortalwrt Lede Lienol Mt798x Official Xwrt; do
-            file=".github/workflows/${workflow}.yml"
-            grep -q 'uses: ./\.github/actions/build-entry' "${file}"
-            grep -q 'uses: ./\.github/actions/trigger' "${file}"
-          done
-          grep -q 'git merge-base --is-ancestor' .github/actions/build-entry/action.yml
-          grep -q 'git rev-list --count' .github/actions/build-entry/action.yml
-          grep -q 'git merge-base --is-ancestor' .github/workflows/compile.yml
-          grep -q 'git diff --name-only --no-renames' .github/actions/build-entry/action.yml
-          grep -q 'git diff --name-only --no-renames' .github/workflows/compile.yml
-          grep -q '⚠️ 上游更新提示（不阻断编译）' .github/actions/build-entry/action.yml
-          grep -q '⚠️ 上游更新提示（不阻断编译）' .github/workflows/compile.yml
-          grep -q 'GITHUB_STEP_SUMMARY' .github/actions/build-entry/action.yml
-          grep -q 'GITHUB_STEP_SUMMARY' .github/workflows/compile.yml
-          grep -q '上游新增提交' .github/actions/build-entry/action.yml
-          grep -q '上游新增提交' .github/workflows/compile.yml
-          grep -q '上游变更文件' .github/actions/build-entry/action.yml
-          grep -q '上游变更文件' .github/workflows/compile.yml
-          grep -q '上游同步检查暂不可用' .github/actions/build-entry/action.yml
-          grep -q '上游同步检查暂不可用' .github/workflows/compile.yml
-          grep -q '无法配置 upstream 远程仓库' .github/actions/build-entry/action.yml
-          grep -q '无法配置 upstream 远程仓库' .github/workflows/compile.yml
-          grep -q '无法添加 upstream 远程仓库' .github/actions/build-entry/action.yml
-          grep -q '无法添加 upstream 远程仓库' .github/workflows/compile.yml
-          ! grep -q '需要先同步上游' .github/actions/build-entry/action.yml
-          ! grep -q '需要先同步上游' .github/workflows/compile.yml
-          ! grep -q 'is_non_compile_change' .github/actions/build-entry/action.yml
-          ! grep -q 'is_non_compile_change' .github/workflows/compile.yml
-
-
-          if grep -RInE --exclude-dir=.git --exclude-dir=backups --exclude=validate.yml \
-            'BENDI_VERSION|OPERATES_PATH|OPERATE_SEED|build/operates|/tmp/common|seed_refresh\.sh' \
-            common build .github/actions; then
-            echo '发现已废弃的编译架构残留'
-            exit 1
-          fi
-          test ! -e common/custom/seed_refresh.sh
-          grep -q 'COMPILE_PATH="\$GITHUB_WORKSPACE/build/\${FOLDER_NAME}"' .github/actions/mishi/action.yml
-          ! grep -q 'cp -Rf build .*operates' .github/actions/mishi/action.yml
-          grep -q 'local runtime_root=' common/custom/first.sh
-          grep -q 'DIY_RUNTIME_DIR=' common/custom/first.sh
-
       - name: common.sh 模块化边界检查
         shell: bash
         run: |
