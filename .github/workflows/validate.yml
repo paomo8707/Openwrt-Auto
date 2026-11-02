@@ -183,10 +183,24 @@ jobs:
           grep -q 'git merge-base --is-ancestor' .github/workflows/compile.yml
           grep -q 'git merge-base --is-ancestor' common/sync-upstream.sh
           for file in .github/actions/build-entry/action.yml .github/workflows/compile.yml; do
-            grep -q 'git diff --name-only' "${file}"
-            grep -Fq 'build/*/diy-part.sh' "${file}"
+            grep -q 'git diff --name-only --no-renames' "${file}"
+            grep -Fq '^build/[^/]+/(settings\.ini|diy-part\.sh)$' "${file}"
+            grep -Fq 'common/tests/*' "${file}"
+            grep -Fq 'backups/*' "${file}"
+            grep -Fq 'common/.github/workflows/*' "${file}"
+            grep -Fq '.github/actions/*/.github/workflows/*' "${file}"
             grep -Fq '.github/workflows/validate.yml' "${file}"
+            grep -Fq 'common/language/AdGuardHome.api' "${file}"
+            grep -Fq '^build/[^/]+/(seed|diy|files|patches)/.+$' "${file}"
           done
+
+          extract_gate() {
+            awk '/is_non_compile_change\(\) \{/ { capture=1 } capture { print } capture && /^[[:space:]]*}[[:space:]]*$/ { exit }' "$1"
+          }
+          [[ "$(extract_gate .github/actions/build-entry/action.yml)" == "$(extract_gate .github/workflows/compile.yml)" ]] || {
+            echo '第一阶段与第二阶段的上游非阻断白名单不一致'
+            exit 1
+          }
 
           if grep -RInE --exclude-dir=.git --exclude-dir=backups --exclude=validate.yml \
             'BENDI_VERSION|OPERATES_PATH|OPERATE_SEED|build/operates|/tmp/common|seed_refresh\.sh' \

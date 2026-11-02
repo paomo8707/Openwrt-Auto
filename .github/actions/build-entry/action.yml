@@ -44,17 +44,34 @@ runs:
         is_non_compile_change() {
           local path="$1"
           case "${path}" in
-            .github/workflows/validate.yml|.github/workflows/sync-upstream.yml|.github/workflows/packaging.yml|.github/workflows/institution.yml|.github/workflows/update-adguardhome-api-cache.yml|common/sync-upstream.sh|README*|*/README*|NEXT_TEST.md|*/NEXT_TEST.md|LICENSE*|*/LICENSE*|*.md|docs/*|*/docs/*|build/*/settings.ini|build/*/diy-part.sh|build/*/seed/*|build/*/diy/*|build/*/files/*|build/*/patches/*)
+            # 文档、许可证和历史备份不参与编译。
+            README*|*/README*|NEXT_TEST.md|*/NEXT_TEST.md|LICENSE*|*/LICENSE*|*.md|docs/*|*/docs/*|backups/*)
               return 0
               ;;
-            *)
-              return 1
+            # 官方维护/自检文件不应迫使普通 Fork 为编译而同步。
+            .github/workflows/validate.yml|.github/workflows/sync-upstream.yml|.github/workflows/packaging.yml|.github/workflows/institution.yml|.github/workflows/update-adguardhome-api-cache.yml|common/tests/*|common/.github/workflows/*|.github/actions/*/.github/workflows/*)
+              return 0
+              ;;
+            # 自动维护的数据与同步器本身不改变当前 Fork 的编译框架。
+            common/language/AdGuardHome.api|common/sync-upstream.sh)
+              return 0
               ;;
           esac
+
+          # Fork 用户自定义层。严格限定为 build/<源码>/ 下的直接文件或指定目录，
+          # 避免 Bash case 的 * 跨目录误把 relevance/settings.ini 等框架文件放行。
+          if [[ "${path}" =~ ^build/[^/]+/(settings\.ini|diy-part\.sh)$ ]]; then
+            return 0
+          fi
+          if [[ "${path}" =~ ^build/[^/]+/(seed|diy|files|patches)/.+$ ]]; then
+            return 0
+          fi
+
+          return 1
         }
 
         mapfile -t BLOCKING_FILES < <(
-          git diff --name-only "${COMMON_BASE}" "${UPSTREAM_COMMIT}" |
+          git diff --name-only --no-renames "${COMMON_BASE}" "${UPSTREAM_COMMIT}" |
             while IFS= read -r path; do
               [[ -n "${path}" ]] || continue
               if ! is_non_compile_change "${path}"; then
