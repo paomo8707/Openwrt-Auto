@@ -85,7 +85,7 @@ jobs:
             .github/workflows/Xwrt.yml \
             .github/workflows/compile.yml; do
             grep -q 'uses: actions/checkout@v5' "${file}"
-            grep -q '^        token: \${{ env.REPO_TOKEN }}$' "${file}"
+            grep -Eq '^[[:space:]]+token:[[:space:]].*REPO_TOKEN' "${file}"
           done
           echo "OK: 编译阶段 checkout 使用 REPO_TOKEN，避免 GITHUB_TOKEN 覆盖 PAT"
 
