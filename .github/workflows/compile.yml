@@ -94,7 +94,7 @@ jobs:
         ref: ${{ inputs.SEED_COMMIT }}
         fetch-depth: 0
 
-    - name: 检查上游更新（如需请先同步）
+    - name: 检查上游更新（仅提示）
       if: github.repository != 'datout/Openwrt-Auto'
       shell: bash
       run: |
@@ -102,82 +102,54 @@ jobs:
         UPSTREAM_REPO="datout/Openwrt-Auto"
         UPSTREAM_BRANCH="main"
 
-        git remote add upstream "https://github.com/${UPSTREAM_REPO}.git" 2>/dev/null || true
-        git fetch upstream "${UPSTREAM_BRANCH}" --prune
+        UPSTREAM_URL="https://github.com/${UPSTREAM_REPO}.git"
+        if git remote get-url upstream >/dev/null 2>&1; then
+          if ! git remote set-url upstream "${UPSTREAM_URL}"; then
+            echo "::warning title=上游同步检查暂不可用::无法配置 upstream 远程仓库。这不会阻止本次编译，当前 Fork 将继续使用本地代码。"
+            exit 0
+          fi
+        else
+          if ! git remote add upstream "${UPSTREAM_URL}"; then
+            echo "::warning title=上游同步检查暂不可用::无法添加 upstream 远程仓库。这不会阻止本次编译，当前 Fork 将继续使用本地代码。"
+            exit 0
+          fi
+        fi
+
+        if ! git fetch upstream "${UPSTREAM_BRANCH}" --prune; then
+          echo "::warning title=上游同步检查暂不可用::无法获取 ${UPSTREAM_REPO}/${UPSTREAM_BRANCH}。这不会阻止本次编译，当前 Fork 将继续使用本地代码。"
+          exit 0
+        fi
 
         LOCAL_COMMIT="$(git rev-parse HEAD)"
         UPSTREAM_COMMIT="$(git rev-parse "upstream/${UPSTREAM_BRANCH}")"
+        AHEAD="$(git rev-list --count "${UPSTREAM_COMMIT}..${LOCAL_COMMIT}")"
+        BEHIND="$(git rev-list --count "${LOCAL_COMMIT}..${UPSTREAM_COMMIT}")"
 
         if git merge-base --is-ancestor "${UPSTREAM_COMMIT}" "${LOCAL_COMMIT}"; then
-          AHEAD="$(git rev-list --count "${UPSTREAM_COMMIT}..${LOCAL_COMMIT}")"
           echo "::notice title=上游同步状态::当前提交已包含上游 main（ahead=${AHEAD}, behind=0）。"
           exit 0
         fi
 
         COMMON_BASE="$(git merge-base "${LOCAL_COMMIT}" "${UPSTREAM_COMMIT}" 2>/dev/null || true)"
         if [[ -z "${COMMON_BASE}" ]]; then
-          echo "::error title=仓库与上游无共同历史::当前提交与 ${UPSTREAM_REPO}/${UPSTREAM_BRANCH} 没有共同祖先，请先处理 Git 历史后再编译。"
-          echo "::notice title=同步路径::Actions -> Sync upstream -> Run workflow。"
-          exit 1
+          echo "::warning title=上游同步提示::当前 Fork 与 ${UPSTREAM_REPO}/${UPSTREAM_BRANCH} 没有共同 Git 历史。当前编译将继续，但如果你希望跟随官方框架更新，建议先 Sync upstream。"
+          exit 0
         fi
 
-        # 与第一阶段保持相同的上游变更门禁：只拦截真正影响编译框架的文件。
-        is_non_compile_change() {
-          local path="$1"
-          case "${path}" in
-            # 文档、许可证和历史备份不参与编译。
-            README*|*/README*|NEXT_TEST.md|*/NEXT_TEST.md|LICENSE*|*/LICENSE*|*.md|docs/*|*/docs/*|backups/*)
-              return 0
-              ;;
-            # 官方维护/自检文件不应迫使普通 Fork 为编译而同步。
-            .github/workflows/validate.yml|.github/workflows/sync-upstream.yml|.github/workflows/packaging.yml|.github/workflows/institution.yml|.github/workflows/update-adguardhome-api-cache.yml|common/tests/*|common/.github/workflows/*|.github/actions/*/.github/workflows/*)
-              return 0
-              ;;
-            # 自动维护的数据与同步器本身不改变当前 Fork 的编译框架。
-            common/language/AdGuardHome.api|common/sync-upstream.sh)
-              return 0
-              ;;
-          esac
-
-          # Fork 用户自定义层。严格限定为 build/<源码>/ 下的直接文件或指定目录，
-          # 避免 Bash case 的 * 跨目录误把 relevance/settings.ini 等框架文件放行。
-          if [[ "${path}" =~ ^build/[^/]+/(settings\.ini|diy-part\.sh)$ ]]; then
-            return 0
-          fi
-          if [[ "${path}" =~ ^build/[^/]+/(seed|diy|files|patches)/.+$ ]]; then
-            return 0
-          fi
-
-          return 1
-        }
-
-        mapfile -t BLOCKING_FILES < <(
+        mapfile -t UPSTREAM_FILES < <(
           git diff --name-only --no-renames "${COMMON_BASE}" "${UPSTREAM_COMMIT}" |
-            while IFS= read -r path; do
-              [[ -n "${path}" ]] || continue
-              if ! is_non_compile_change "${path}"; then
-                printf '%s\n' "${path}"
-              fi
-            done
+            sed '/^$/d'
         )
 
-        if ((${#BLOCKING_FILES[@]})); then
-          BEHIND="$(git rev-list --count "${LOCAL_COMMIT}..${UPSTREAM_COMMIT}")"
-          AHEAD="$(git rev-list --count "${UPSTREAM_COMMIT}..${LOCAL_COMMIT}")"
-          echo "::error title=需要先同步上游::上游存在 ${#BLOCKING_FILES[@]} 个影响编译的文件变更（ahead=${AHEAD}, behind=${BEHIND}）。"
-          echo "以下上游文件会影响当前编译框架："
-          printf '  %s\n' "${BLOCKING_FILES[@]:0:50}"
-          if ((${#BLOCKING_FILES[@]} > 50)); then
-            echo "  ... 其余 $(( ${#BLOCKING_FILES[@]} - 50 )) 个文件未展开"
+        echo "::warning title=上游同步提示::当前 Fork 落后 upstream ${BEHIND} 个提交（ahead=${AHEAD}, behind=${BEHIND}）。同步 upstream 是推荐操作，但不会阻止本次编译。"
+        if ((${#UPSTREAM_FILES[@]})); then
+          echo "上游相对共同基线的文件变更（最多显示 50 个）："
+          printf '  %s\n' "${UPSTREAM_FILES[@]:0:50}"
+          if ((${#UPSTREAM_FILES[@]} > 50)); then
+            echo "  ... 其余 $(( ${#UPSTREAM_FILES[@]} - 50 )) 个文件未展开"
           fi
-          echo "::notice title=同步路径::Actions -> Sync upstream -> Run workflow。"
-          exit 1
         fi
-
-        BEHIND="$(git rev-list --count "${LOCAL_COMMIT}..${UPSTREAM_COMMIT}")"
-        AHEAD="$(git rev-list --count "${UPSTREAM_COMMIT}..${LOCAL_COMMIT}")"
-        echo "::notice title=上游更新可直接编译::上游新增 ${BEHIND} 个提交仅包含非编译相关变更（ahead=${AHEAD}, behind=${BEHIND}），无需 Sync upstream。"
-
+        echo "提示：当前编译继续使用你 Fork 中的代码；如需获得官方最新框架修复，请执行 Sync upstream。"
     - name: 检测密钥 / 文件
       uses: ./.github/actions/mishi
         
