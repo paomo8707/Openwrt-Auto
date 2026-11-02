@@ -202,8 +202,14 @@ jobs:
           grep -q 'git merge-base --is-ancestor' .github/workflows/compile.yml
           grep -q 'git diff --name-only --no-renames' .github/actions/build-entry/action.yml
           grep -q 'git diff --name-only --no-renames' .github/workflows/compile.yml
-          grep -q '上游同步提示' .github/actions/build-entry/action.yml
-          grep -q '上游同步提示' .github/workflows/compile.yml
+          grep -q '⚠️ 上游更新提示（不阻断编译）' .github/actions/build-entry/action.yml
+          grep -q '⚠️ 上游更新提示（不阻断编译）' .github/workflows/compile.yml
+          grep -q 'GITHUB_STEP_SUMMARY' .github/actions/build-entry/action.yml
+          grep -q 'GITHUB_STEP_SUMMARY' .github/workflows/compile.yml
+          grep -q '上游新增提交' .github/actions/build-entry/action.yml
+          grep -q '上游新增提交' .github/workflows/compile.yml
+          grep -q '上游变更文件' .github/actions/build-entry/action.yml
+          grep -q '上游变更文件' .github/workflows/compile.yml
           grep -q '上游同步检查暂不可用' .github/actions/build-entry/action.yml
           grep -q '上游同步检查暂不可用' .github/workflows/compile.yml
           grep -q '无法配置 upstream 远程仓库' .github/actions/build-entry/action.yml
