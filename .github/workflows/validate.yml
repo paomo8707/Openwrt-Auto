@@ -70,6 +70,23 @@ jobs:
             echo '::warning title=ShellCheck 迁移模块观察::common/custom/ubuntu.sh 存在 ShellCheck 诊断，但该历史模块不作为阻断门禁。'
           fi
 
+      - name: 检查 Fork 编译认证
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in \
+            .github/workflows/Lede.yml \
+            .github/workflows/Immortalwrt.yml \
+            .github/workflows/Lienol.yml \
+            .github/workflows/Mt798x.yml \
+            .github/workflows/Official.yml \
+            .github/workflows/Xwrt.yml \
+            .github/workflows/compile.yml; do
+            grep -q 'uses: actions/checkout@v5' "${file}"
+            grep -q '^        token: \${{ env.REPO_TOKEN }}$' "${file}"
+          done
+          echo "OK: 编译阶段 checkout 使用 REPO_TOKEN，避免 GITHUB_TOKEN 覆盖 PAT"
+
       - name: YAML 语法检查
         shell: bash
         run: |
