@@ -27,6 +27,11 @@ else
 fi
 git fetch upstream "${UPSTREAM_BRANCH}" --prune
 
+# GitHub Actions runners do not provide a Git identity by default.
+# Configure a local bot identity before any merge/commit operation.
+git config user.name "github-actions[bot]"
+git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
 LOCAL_COMMIT="$(git rev-parse HEAD)"
 UPSTREAM_COMMIT="$(git rev-parse "upstream/${UPSTREAM_BRANCH}")"
 AHEAD="$(git rev-list --count "${UPSTREAM_COMMIT}..${LOCAL_COMMIT}")"
